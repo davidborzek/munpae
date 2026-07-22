@@ -47,7 +47,7 @@ func TestHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusOK || string(body) != "ok" {
 		t.Fatalf("healthz = %d %q, want 200 \"ok\"", resp.StatusCode, body)
 	}
@@ -58,7 +58,7 @@ func TestHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ = io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	if !strings.Contains(string(body), "munpae_changes_total") {
 		t.Fatalf("metrics missing munpae_changes_total:\n%s", body)
 	}

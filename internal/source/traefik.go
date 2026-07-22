@@ -144,7 +144,7 @@ func parseRouters(labels map[string]string) map[string]*router {
 }
 
 var (
-	hostFunc = regexp.MustCompile("(?i)Host(?:SNI)?\\(([^)]*)\\)")
+	hostFunc = regexp.MustCompile(`(?i)Host(?:SNI)?\(([^)]*)\)`)
 	quoted   = regexp.MustCompile("`([^`]*)`")
 )
 

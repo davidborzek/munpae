@@ -26,9 +26,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
+      # Built from source with the module's Go toolchain — prebuilt golangci-lint
+      # binaries lag new Go releases and refuse to run against a newer target.
+      - run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest run ./...
 
   vuln:
     runs-on: ubuntu-latest

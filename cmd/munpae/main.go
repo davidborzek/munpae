@@ -70,7 +70,7 @@ func run(cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	src, err := buildSources(cfg, cli, logger)
 	if err != nil {
