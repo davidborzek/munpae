@@ -1,0 +1,55 @@
+# Example: the `traefik` source — DNS derived from Traefik router rules.
+#
+#   docker compose up --build
+#
+# munpae reads each container's Traefik router labels for the hostname, and maps
+# the router's entrypoint to a target via the entrypoint→anchor labels on the
+# Traefik container. No per-app DNS labels needed. Dry-run: logs the plan.
+name: munpae-traefik
+
+services:
+  munpae:
+    build: ../..
+    read_only: true
+    cap_drop: [ALL]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      MUNPAE_DRY_RUN: "true"
+      MUNPAE_SOURCES: traefik
+      MUNPAE_DOMAIN_FILTER: example.com
+      MUNPAE_LOG_LEVEL: info
+    ports:
+      - "9333:9333"                   # /metrics + /healthz
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --entrypoints.web-internal.address=:80
+      - --entrypoints.web-external.address=:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      # Entrypoint → DNS target anchors, owned by the reverse proxy. A router on
+      # web-internal resolves to internal.example.com, web-external to external.
+      munpae.dns/traefik.entrypoint.web-internal.target: internal.example.com
+      munpae.dns/traefik.entrypoint.web-external.target: external.example.com
+
+  # Internal-only app: routed on web-internal → CNAME to internal.example.com.
+  api:
+    image: traefik/whoami
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: Host(`api.example.com`)
+      traefik.http.routers.api.entrypoints: web-internal
+
+  # Public app: routed on web-external → CNAME to external.example.com.
+  shop:
+    image: traefik/whoami
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.shop.rule: Host(`shop.example.com`)
+      traefik.http.routers.shop.entrypoints: web-external

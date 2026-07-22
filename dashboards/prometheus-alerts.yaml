@@ -1,0 +1,39 @@
+# Prometheus alerting rules for munpae. Load via rule_files in prometheus.yml.
+groups:
+  - name: munpae
+    rules:
+      - alert: MunpaeNotReady
+        expr: munpae_ready == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "munpae's last reconcile did not succeed"
+          description: "munpae_ready has been 0 for 5m on {{ $labels.instance }} — DNS may not reflect current containers."
+
+      - alert: MunpaeReconcileStale
+        expr: time() - munpae_last_reconcile_success_timestamp_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "munpae reconciliation is stale"
+          description: "No successful reconcile for >5m on {{ $labels.instance }}; published records may be out of date."
+
+      - alert: MunpaeReconcileErrors
+        expr: rate(munpae_reconciles_total{result="error"}[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "munpae reconciles are failing"
+          description: "munpae has failing reconciles on {{ $labels.instance }} (check the daemon logs and the DNS backend)."
+
+      - alert: MunpaeWatchFlapping
+        expr: rate(munpae_watch_restarts_total[15m]) > 0
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "munpae's Docker event watcher is flapping"
+          description: "The Docker event stream keeps being re-established on {{ $labels.instance }} — usually Docker API instability, not munpae."

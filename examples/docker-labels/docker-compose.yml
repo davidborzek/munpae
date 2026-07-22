@@ -1,0 +1,40 @@
+# Example: the `docker` source — declare records with explicit labels.
+#
+#   docker compose up --build
+#
+# munpae reads the Docker API (read-only), derives DNS records from the labels
+# below, and — in dry-run — logs the plan instead of writing. Point it at a real
+# provider (see README.md) to actually publish. /metrics + /healthz on :9333.
+name: munpae-docker-labels
+
+services:
+  munpae:
+    build: ../..
+    read_only: true
+    cap_drop: [ALL]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      MUNPAE_DRY_RUN: "true"          # log the plan; don't touch DNS
+      MUNPAE_SOURCES: docker
+      MUNPAE_DOMAIN_FILTER: example.com
+      MUNPAE_LOG_LEVEL: info
+    ports:
+      - "9333:9333"                   # /metrics + /healthz
+    restart: unless-stopped
+
+  # A plain service publishing an A record via explicit labels.
+  db:
+    image: busybox
+    command: sleep infinity
+    labels:
+      munpae.dns/hostname: db.example.com
+      munpae.dns/target: 192.0.2.2
+
+  # Multiple names sharing one CNAME target (record type is inferred).
+  app:
+    image: busybox
+    command: sleep infinity
+    labels:
+      munpae.dns/hostname: "app.example.com,www.example.com"
+      munpae.dns/target: ingress.example.com
