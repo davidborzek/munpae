@@ -33,3 +33,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Prometheus `/metrics` and `/healthz` endpoints.
 - CLI with `--dry-run`, `--version`, and `--help`.
 - Multi-arch container image (`linux/amd64`, `linux/arm64`).
+
+### Changed
+
+- Container label keys now use a dot between `dns` and the field
+  (`munpae.dns.hostname`), conforming to the shared label convention
+  (`LABEL-SPEC.md`).
+
+### Deprecated
+
+- The slash label form (`munpae.dns/<field>`, including
+  `munpae.dns/traefik.entrypoint.<ep>.target`) in favour of the dot form. It is
+  still honoured — the dot form wins when both are set — but logs a warning and
+  increments `munpae_deprecated_label_total{label}`. It will be removed in a
+  future minor release.

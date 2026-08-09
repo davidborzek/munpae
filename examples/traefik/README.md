@@ -20,7 +20,7 @@ msg="dry-run CREATE" name=shop.example.com type=CNAME targets=[external.example.
 ## What it demonstrates
 
 - The Traefik container carries the **entrypoint → target anchors**
-  (`munpae.dns/traefik.entrypoint.<ep>.target`) — a topology fact owned by the
+  (`munpae.dns.traefik.entrypoint.<ep>.target`) — a topology fact owned by the
   reverse proxy, not by munpae.
 - **`api`** is routed on `web-internal`, so its `Host(...)` name resolves to
   `internal.example.com`.
@@ -29,7 +29,7 @@ msg="dry-run CREATE" name=shop.example.com type=CNAME targets=[external.example.
 - munpae reads the routers' `Host(...)` rules for the names; the record type is
   inferred from the anchor target (hostname → CNAME).
 
-A per-app `munpae.dns/target` label still wins over the entrypoint anchor if you
+A per-app `munpae.dns.target` label still wins over the entrypoint anchor if you
 need to override one service.
 
 ## Split horizon

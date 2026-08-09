@@ -12,22 +12,24 @@ import (
 	"github.com/davidborzek/munpae/internal/endpoint"
 )
 
-// DockerLabel builds endpoints from explicit `<prefix>.dns/*` container labels:
+// DockerLabel builds endpoints from explicit `<prefix>.dns.*` container labels:
 //
-//	<prefix>.dns/hostname   comma-separated names (required)
-//	<prefix>.dns/target     RDATA override (optional; else DefaultTarget)
-//	<prefix>.dns/ttl        TTL seconds (optional)
-//	<prefix>.dns/cloudflare-proxied  per-record CF proxied override (optional)
-//	<prefix>.dns/exclude    "true" opts the container out
+//	<prefix>.dns.hostname   comma-separated names (required)
+//	<prefix>.dns.target     RDATA override (optional; else DefaultTarget)
+//	<prefix>.dns.ttl        TTL seconds (optional)
+//	<prefix>.dns.cloudflare-proxied  per-record CF proxied override (optional)
+//	<prefix>.dns.exclude    "true" opts the container out
+//
+// The legacy `<prefix>.dns/<field>` (slash) form is still read for backwards
+// compatibility but is deprecated; see LABEL-SPEC.md.
 type DockerLabel struct {
-	cli    client.APIClient
-	prefix string
-	log    *slog.Logger
+	cli client.APIClient
+	r   *labelReader
 }
 
 // NewDockerLabel returns a DockerLabel source.
-func NewDockerLabel(cli client.APIClient, prefix string, log *slog.Logger) *DockerLabel {
-	return &DockerLabel{cli: cli, prefix: prefix, log: log}
+func NewDockerLabel(cli client.APIClient, prefix string, log *slog.Logger, onDeprecated func(string)) *DockerLabel {
+	return &DockerLabel{cli: cli, r: newLabelReader(prefix, log, onDeprecated)}
 }
 
 // Endpoints implements Source.
@@ -36,31 +38,24 @@ func (s *DockerLabel) Endpoints(ctx context.Context) ([]endpoint.Endpoint, error
 	if err != nil {
 		return nil, err
 	}
-	var (
-		hostKey    = s.prefix + ".dns/hostname"
-		targetKey  = s.prefix + ".dns/target"
-		ttlKey     = s.prefix + ".dns/ttl"
-		excludeKey = s.prefix + ".dns/exclude"
-		proxiedKey = s.prefix + ".dns/cloudflare-proxied"
-	)
 	var out []endpoint.Endpoint
 	for _, c := range summaries {
-		host := strings.TrimSpace(c.Labels[hostKey])
-		if host == "" || strings.EqualFold(c.Labels[excludeKey], "true") {
+		host := strings.TrimSpace(s.r.field(c.Labels, "hostname"))
+		if host == "" || strings.EqualFold(s.r.field(c.Labels, "exclude"), "true") {
 			continue
 		}
 		var ttl int64
-		if v := c.Labels[ttlKey]; v != "" {
+		if v := s.r.field(c.Labels, "ttl"); v != "" {
 			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 				ttl = n
 			}
 		}
 		var targets []string
-		if t := strings.TrimSpace(c.Labels[targetKey]); t != "" {
+		if t := strings.TrimSpace(s.r.field(c.Labels, "target")); t != "" {
 			targets = []string{t}
 		}
 		var labels map[string]string
-		if v := strings.TrimSpace(c.Labels[proxiedKey]); v != "" {
+		if v := strings.TrimSpace(s.r.field(c.Labels, "cloudflare-proxied")); v != "" {
 			labels = map[string]string{"cloudflare-proxied": strconv.FormatBool(strings.EqualFold(v, "true"))}
 		}
 		for _, name := range strings.Split(host, ",") {

@@ -115,8 +115,8 @@ func startDemo(t *testing.T, ctx context.Context, host, target string) {
 			Image:      "alpine:3",
 			Entrypoint: []string{"sleep", "600"},
 			Labels: map[string]string{
-				"munpae.dns/hostname": host,
-				"munpae.dns/target":   target,
+				"munpae.dns.hostname": host,
+				"munpae.dns.target":   target,
 			},
 			WaitingFor: wait.ForExec([]string{"true"}),
 		},

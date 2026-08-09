@@ -44,8 +44,17 @@ jobs:
       # acted on and shouldn't block CI. When a fix lands, this turns red.
       - name: govulncheck (fail on fixable advisories)
         run: |
-          out=$(go run golang.org/x/vuln/cmd/govulncheck@latest ./... 2>&1) || true
+          rc=0
+          out=$(go run golang.org/x/vuln/cmd/govulncheck@latest ./... 2>&1) || rc=$?
           echo "$out"
+          # govulncheck exits nonzero both when it finds vulnerabilities AND on a
+          # genuine tooling error, so a bare `|| true` would let a broken run pass
+          # green. Require a completion marker before trusting the parse below.
+          if ! echo "$out" | grep -qE 'No vulnerabilities found|Your code is affected by'; then
+            echo "::error::govulncheck did not complete (exit $rc)"
+            exit 1
+          fi
+          # Fail only on advisories that have an available fix.
           if echo "$out" | grep -E '^\s*Fixed in:' | grep -qv 'N/A'; then
             echo "::error::govulncheck found advisories with an available fix — please update"
             exit 1
