@@ -1,0 +1,47 @@
+name: build-main
+
+# Manually build a container image from the selected branch (main by default)
+# and publish it to GHCR, tagged with the commit SHA plus a moving `main` tag.
+# For testing unreleased changes — `latest` stays reserved for tagged releases
+# (built by goreleaser on release-please cuts).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve short commit SHA
+        id: vars
+        run: echo "sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          build-args: |
+            VERSION=main-${{ steps.vars.outputs.sha }}
+          tags: |
+            ghcr.io/davidborzek/munpae:main
+            ghcr.io/davidborzek/munpae:${{ steps.vars.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/davidborzek/munpae
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=main-${{ steps.vars.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -55,10 +55,19 @@ func (r *TXT) Records(ctx context.Context) ([]endpoint.Endpoint, error) {
 	return out, nil
 }
 
-// ApplyChanges applies the record changes plus their ownership TXT records
-// (created alongside creates, removed alongside deletes; updates keep the same
-// owner, so their TXT is untouched).
+// ApplyChanges applies the record changes plus their ownership TXT records.
+// Ownership TXTs are reconciled against the live provider state rather than
+// blindly mirrored onto the plan: a TXT is created only when it is missing and
+// deleted only when it is present. This keeps apply idempotent when a managed
+// record and its ownership TXT drift apart — e.g. the record was deleted out
+// from under us, leaving an orphan TXT: we recreate the record without
+// re-creating (and colliding with) the surviving TXT. Updates keep the same
+// owner, so their TXT is untouched.
 func (r *TXT) ApplyChanges(ctx context.Context, ch *plan.Changes) error {
+	existing, err := r.existingOwnership(ctx)
+	if err != nil {
+		return err
+	}
 	out := &plan.Changes{
 		Create:    append([]endpoint.Endpoint(nil), ch.Create...),
 		Update:    append([]endpoint.Endpoint(nil), ch.Update...),
@@ -66,12 +75,32 @@ func (r *TXT) ApplyChanges(ctx context.Context, ch *plan.Changes) error {
 		Delete:    append([]endpoint.Endpoint(nil), ch.Delete...),
 	}
 	for _, e := range ch.Create {
-		out.Create = append(out.Create, r.ownership(e))
+		if own := r.ownership(e); !existing[own.DNSName] {
+			out.Create = append(out.Create, own)
+		}
 	}
 	for _, e := range ch.Delete {
-		out.Delete = append(out.Delete, r.ownership(e))
+		if own := r.ownership(e); existing[own.DNSName] {
+			out.Delete = append(out.Delete, own)
+		}
 	}
 	return r.inner.ApplyChanges(ctx, out)
+}
+
+// existingOwnership returns the set of ownership-TXT names munpae currently owns
+// in the provider, so ApplyChanges can avoid recreating or double-deleting them.
+func (r *TXT) existingOwnership(ctx context.Context) (map[string]bool, error) {
+	all, err := r.inner.Records(ctx)
+	if err != nil {
+		return nil, err
+	}
+	set := make(map[string]bool)
+	for _, e := range all {
+		if e.RecordType == endpoint.TypeTXT && r.owns(e) {
+			set[e.DNSName] = true
+		}
+	}
+	return set, nil
 }
 
 // AdjustEndpoints forwards to the wrapped provider when it supports the

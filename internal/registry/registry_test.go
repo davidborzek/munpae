@@ -45,10 +45,11 @@ func TestRecordsFiltersToOwned(t *testing.T) {
 }
 
 func TestApplyAddsAndRemovesOwnershipTXT(t *testing.T) {
-	inner := &fakeProvider{}
+	del := endpoint.New("gone.example.com", []string{"192.0.2.2"}, endpoint.TypeA, 0)
+	// The record being deleted was owned, so its ownership TXT exists.
+	inner := &fakeProvider{records: []endpoint.Endpoint{del, ownTXT("me", del)}}
 	r := NewTXT(inner, "me", "")
 	create := endpoint.New("app.example.com", []string{"192.0.2.1"}, endpoint.TypeA, 0)
-	del := endpoint.New("gone.example.com", []string{"192.0.2.2"}, endpoint.TypeA, 0)
 
 	if err := r.ApplyChanges(context.Background(), &plan.Changes{
 		Create: []endpoint.Endpoint{create},
@@ -68,6 +69,51 @@ func TestApplyAddsAndRemovesOwnershipTXT(t *testing.T) {
 	}
 	if txt == nil || txt.DNSName != "a-app.example.com" || !strings.Contains(txt.Targets[0], "munpae/owner=me") {
 		t.Fatalf("ownership TXT wrong: %+v", txt)
+	}
+}
+
+// A managed record can be missing while its ownership TXT lingers (the record
+// was deleted out from under us). Recreating the record must NOT recreate the
+// surviving TXT, or the provider rejects it as a duplicate and reconcile loops.
+func TestApplySkipsExistingOwnershipTXTOnCreate(t *testing.T) {
+	create := endpoint.New("app.example.com", []string{"anchor.example.com"}, endpoint.TypeCNAME, 0)
+	// Orphan: ownership TXT present, but the CNAME itself is gone.
+	inner := &fakeProvider{records: []endpoint.Endpoint{ownTXT("me", create)}}
+	r := NewTXT(inner, "me", "")
+
+	if err := r.ApplyChanges(context.Background(), &plan.Changes{
+		Create: []endpoint.Endpoint{create},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, e := range inner.applied.Create {
+		if e.RecordType == endpoint.TypeTXT {
+			t.Fatalf("existing ownership TXT must not be re-created: %+v", e)
+		}
+	}
+	if len(inner.applied.Create) != 1 || inner.applied.Create[0].RecordType != endpoint.TypeCNAME {
+		t.Fatalf("record must still be created without a duplicate TXT: %+v", inner.applied.Create)
+	}
+}
+
+// Deleting a record whose ownership TXT is already gone must not emit a stray
+// TXT delete.
+func TestApplySkipsMissingOwnershipTXTOnDelete(t *testing.T) {
+	del := endpoint.New("gone.example.com", []string{"192.0.2.2"}, endpoint.TypeA, 0)
+	inner := &fakeProvider{records: []endpoint.Endpoint{del}} // record present, TXT already gone
+	r := NewTXT(inner, "me", "")
+
+	if err := r.ApplyChanges(context.Background(), &plan.Changes{
+		Delete: []endpoint.Endpoint{del},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, e := range inner.applied.Delete {
+		if e.RecordType == endpoint.TypeTXT {
+			t.Fatalf("missing ownership TXT must not be deleted: %+v", e)
+		}
 	}
 }
 

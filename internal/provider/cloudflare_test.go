@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/cloudflare/cloudflare-go"
@@ -85,6 +86,37 @@ func TestRecordsPaginationAndMerge(t *testing.T) {
 	}
 	if byKey["A/rr.example.com"].Labels["cloudflare-proxied"] != "false" {
 		t.Fatalf("unproxied A label = %q, want false", byKey["A/rr.example.com"].Labels["cloudflare-proxied"])
+	}
+}
+
+func TestRecordsUnquotesTXT(t *testing.T) {
+	long := strings.Repeat("a", 300)
+	f := &fakeCF{
+		zones: []cloudflare.Zone{{ID: "z1", Name: "example.com"}},
+		pages: [][]cloudflare.DNSRecord{{
+			// CF returns TXT content wrapped in quotes; long values arrive as
+			// adjacent 255-byte quoted chunks.
+			{Type: "TXT", Name: "munpae.cname-app.example.com", Content: `"heritage=munpae,munpae/owner=me"`, TTL: 1},
+			{Type: "TXT", Name: "big.example.com", Content: `"` + long[:255] + `" "` + long[255:] + `"`, TTL: 1},
+		}},
+	}
+	c := &Cloudflare{api: f}
+	eps, err := c.Records(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byKey := map[string]endpoint.Endpoint{}
+	for _, e := range eps {
+		byKey[e.Key()] = e
+	}
+	// Ownership TXT must read back without the surrounding quotes, so it stays
+	// byte-identical to what the registry writes (no spurious diff/churn).
+	if got := byKey["TXT/munpae.cname-app.example.com"].Targets[0]; got != "heritage=munpae,munpae/owner=me" {
+		t.Fatalf("TXT content = %q, want unquoted", got)
+	}
+	// Chunked long value reassembles to the raw string.
+	if got := byKey["TXT/big.example.com"].Targets[0]; got != long {
+		t.Fatalf("chunked TXT content len = %d, want %d", len(got), len(long))
 	}
 }
 

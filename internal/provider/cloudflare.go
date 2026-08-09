@@ -65,11 +65,19 @@ func (c *Cloudflare) Records(ctx context.Context) ([]endpoint.Endpoint, error) {
 			}
 			name := strings.TrimSuffix(r.Name, ".")
 			key := string(rt) + "/" + name
+			content := r.Content
+			if rt == endpoint.TypeTXT {
+				// Cloudflare stores TXT content wrapped in double quotes (adding
+				// them on create if absent) and returns it quoted. We write
+				// unquoted content, so strip the quoting here to keep read/write
+				// symmetric — otherwise every diff sees `"x"` != `x` and churns.
+				content = unquoteTXT(content)
+			}
 			if ep := byKey[key]; ep != nil {
-				ep.Targets = append(ep.Targets, r.Content)
+				ep.Targets = append(ep.Targets, content)
 				continue
 			}
-			ep := endpoint.New(name, []string{r.Content}, rt, int64(r.TTL))
+			ep := endpoint.New(name, []string{content}, rt, int64(r.TTL))
 			if rt != endpoint.TypeTXT {
 				ep.Labels = map[string]string{proxiedLabel: strconv.FormatBool(r.Proxied != nil && *r.Proxied)}
 			}
@@ -242,6 +250,35 @@ func recordType(t string) (endpoint.RecordType, bool) {
 	default:
 		return "", false
 	}
+}
+
+// unquoteTXT normalizes Cloudflare's quoted TXT content back to the raw value.
+// CF returns TXT content wrapped in double quotes, splitting values longer than
+// 255 bytes into several adjacent quoted chunks (`"aaa" "bbb"`). A plain value
+// (no surrounding quote) is returned unchanged.
+func unquoteTXT(s string) string {
+	if !strings.HasPrefix(s, `"`) {
+		return s
+	}
+	if v, err := strconv.Unquote(s); err == nil {
+		return v
+	}
+	// Concatenated 255-byte chunks: unquote each, dropping the joining spaces.
+	var b strings.Builder
+	for _, chunk := range strings.Split(s, `" "`) {
+		if !strings.HasPrefix(chunk, `"`) {
+			chunk = `"` + chunk
+		}
+		if !strings.HasSuffix(chunk, `"`) {
+			chunk += `"`
+		}
+		if v, err := strconv.Unquote(chunk); err == nil {
+			b.WriteString(v)
+		} else {
+			b.WriteString(strings.Trim(chunk, `"`))
+		}
+	}
+	return b.String()
 }
 
 // longestZone returns the most specific accessible zone `name` belongs to, or "".
