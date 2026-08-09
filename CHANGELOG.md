@@ -50,9 +50,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Cloudflare: TXT record content is now unquoted on read. Cloudflare stores TXT
-  content wrapped in double quotes (splitting long values into 255-byte quoted
-  chunks); reading it back verbatim made every diff see `"x"` != `x`.
+- Cloudflare: TXT record content is now sent pre-quoted and unquoted on read.
+  Cloudflare requires TXT content to be quoted — it adds the quotes itself (with
+  a warning) when sent raw, and stores/returns it wrapped in double quotes,
+  splitting long values into 255-byte quoted chunks. munpae now quotes on write
+  (no more Cloudflare warning) and unquotes on read, so diffs no longer see
+  `"x"` != `x`.
 - Ownership TXT records are reconciled against live provider state instead of
   being mirrored blindly onto every create/delete. A managed record whose
   ownership TXT still exists (e.g. the record was deleted out from under munpae)
