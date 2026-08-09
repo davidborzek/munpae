@@ -38,8 +38,8 @@ func TestParseHosts(t *testing.T) {
 func TestTraefikEndpoints(t *testing.T) {
 	summaries := []container.Summary{
 		{Labels: map[string]string{ // traefik container carries the anchor map
-			"munpae.dns/traefik.entrypoint.internal-secure.target": "internal.example.com",
-			"munpae.dns/traefik.entrypoint.external-secure.target": "external.example.com",
+			"munpae.dns.traefik.entrypoint.internal-secure.target": "internal.example.com",
+			"munpae.dns.traefik.entrypoint.external-secure.target": "external.example.com",
 		}},
 		{Labels: map[string]string{ // internal-only app
 			"traefik.http.routers.sonarr.rule":        "Host(`sonarr.example.com`)",
@@ -52,12 +52,12 @@ func TestTraefikEndpoints(t *testing.T) {
 		{Labels: map[string]string{ // per-app target override wins over the anchor
 			"traefik.http.routers.db.rule":        "Host(`db.example.com`)",
 			"traefik.http.routers.db.entrypoints": "internal-secure",
-			"munpae.dns/target":                   "192.0.2.2",
+			"munpae.dns.target":                   "192.0.2.2",
 		}},
 	}
 
 	collect := func(entrypoints []string) map[string]string {
-		s := NewTraefik(fakeDocker{summaries: summaries}, "munpae", entrypoints, slog.Default())
+		s := NewTraefik(fakeDocker{summaries: summaries}, "munpae", entrypoints, slog.Default(), nil)
 		eps, err := s.Endpoints(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -90,5 +90,27 @@ func TestTraefikEndpoints(t *testing.T) {
 	}
 	if cf["plex.example.com"] != "external.example.com" {
 		t.Errorf("cf must publish the external app: %v", cf)
+	}
+}
+
+func TestTraefikDeprecatedSlash(t *testing.T) {
+	var seen []string
+	s := NewTraefik(fakeDocker{summaries: []container.Summary{
+		{Labels: map[string]string{"munpae.dns/traefik.entrypoint.web.target": "anchor.example.com"}},
+		{Labels: map[string]string{
+			"traefik.http.routers.app.rule":        "Host(`app.example.com`)",
+			"traefik.http.routers.app.entrypoints": "web",
+		}},
+	}}, "munpae", nil, slog.Default(), func(k string) { seen = append(seen, k) })
+
+	eps, err := s.Endpoints(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(eps) != 1 || len(eps[0].Targets) != 1 || eps[0].Targets[0] != "anchor.example.com" {
+		t.Fatalf("deprecated slash anchor must still resolve: %+v", eps)
+	}
+	if len(seen) == 0 {
+		t.Error("deprecated anchor label must be reported via onDeprecated")
 	}
 }

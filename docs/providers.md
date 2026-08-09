@@ -66,8 +66,8 @@ container label:
 
 ```yaml
 labels:
-  munpae.dns/hostname: direct.example.com
-  munpae.dns/cloudflare-proxied: "false"   # this record bypasses the global default
+  munpae.dns.hostname: direct.example.com
+  munpae.dns.cloudflare-proxied: "false"   # this record bypasses the global default
 ```
 
 Proxied records are created with Cloudflare's automatic TTL, as the API

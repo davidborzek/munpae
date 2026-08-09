@@ -22,7 +22,7 @@ startup with a clear error rather than silently falling back.
 | `MUNPAE_DOMAIN_FILTER` | _(none)_ | Only manage names under these zones, e.g. `example.com`. Empty = all. |
 | `MUNPAE_DEFAULT_TARGET` | _(none)_ | Fallback RDATA target when a source yields none (e.g. a LAN IP or tunnel host). |
 | `MUNPAE_POLICY` | `upsert-only` | `upsert-only` never deletes; `sync` also deletes stale owned records. |
-| `MUNPAE_LABEL_PREFIX` | `munpae` | Docker label namespace → `<prefix>.dns/*`. |
+| `MUNPAE_LABEL_PREFIX` | `munpae` | Docker label namespace → `<prefix>.dns.*`. |
 | `MUNPAE_RESYNC_INTERVAL` | `60s` | Periodic full resync (clamped to > 0). |
 | `MUNPAE_DEBOUNCE_DELAY` | `1s` | Event coalescing window (clamped to > 0). |
 | `MUNPAE_METRICS_ADDR` | `:9333` | Listen address for `/metrics` + `/healthz`; blank disables the server. |
@@ -55,7 +55,7 @@ Used when `MUNPAE_PROVIDER=cloudflare`.
 | Variable | Default | Purpose |
 |---|---|---|
 | `MUNPAE_CF_API_TOKEN` | _(required)_ | Cloudflare API token with DNS edit rights on the zone(s). |
-| `MUNPAE_CF_PROXIED` | `false` | Proxy A/AAAA/CNAME through Cloudflare by default. Overridable per record via the `munpae.dns/cloudflare-proxied` label. |
+| `MUNPAE_CF_PROXIED` | `false` | Proxy A/AAAA/CNAME through Cloudflare by default. Overridable per record via the `munpae.dns.cloudflare-proxied` label. |
 
 ## webhook provider
 

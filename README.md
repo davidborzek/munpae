@@ -68,8 +68,8 @@ services:
   db:
     image: postgres
     labels:
-      munpae.dns/hostname: db.example.com
-      munpae.dns/target: 192.0.2.2
+      munpae.dns.hostname: db.example.com
+      munpae.dns.target: 192.0.2.2
 ```
 
 Drop `MUNPAE_DRY_RUN` to apply for real. See [Usage](docs/usage.md) for the full

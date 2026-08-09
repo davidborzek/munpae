@@ -28,13 +28,13 @@ services:
     image: busybox
     command: sleep infinity
     labels:
-      munpae.dns/hostname: db.example.com
-      munpae.dns/target: 192.0.2.2
+      munpae.dns.hostname: db.example.com
+      munpae.dns.target: 192.0.2.2
 
   # Multiple names sharing one CNAME target (record type is inferred).
   app:
     image: busybox
     command: sleep infinity
     labels:
-      munpae.dns/hostname: "app.example.com,www.example.com"
-      munpae.dns/target: ingress.example.com
+      munpae.dns.hostname: "app.example.com,www.example.com"
+      munpae.dns.target: ingress.example.com

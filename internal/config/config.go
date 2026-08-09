@@ -18,7 +18,7 @@ type Config struct {
 	Sources        []string      `env:"SOURCES" envDefault:"docker"`      // enabled sources, e.g. docker,traefik
 	Provider       string        `env:"PROVIDER" envDefault:"rfc2136"`    // rfc2136 | cloudflare
 	Registry       string        `env:"REGISTRY" envDefault:"txt"`        // txt | noop
-	LabelPrefix    string        `env:"LABEL_PREFIX" envDefault:"munpae"` // Docker label namespace -> <prefix>.dns/*
+	LabelPrefix    string        `env:"LABEL_PREFIX" envDefault:"munpae"` // Docker label namespace -> <prefix>.dns.*
 	DomainFilter   []string      `env:"DOMAIN_FILTER"`                    // only manage names under these zones
 	DefaultTarget  string        `env:"DEFAULT_TARGET"`                   // fallback RDATA when a source yields none
 	Policy         string        `env:"POLICY" envDefault:"upsert-only"`  // sync | upsert-only

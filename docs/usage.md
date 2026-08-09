@@ -21,8 +21,8 @@ services:
   db:
     image: postgres
     labels:
-      munpae.dns/hostname: db.example.com
-      munpae.dns/target: 192.0.2.2      # omit to use MUNPAE_DEFAULT_TARGET
+      munpae.dns.hostname: db.example.com
+      munpae.dns.target: 192.0.2.2      # omit to use MUNPAE_DEFAULT_TARGET
 ```
 
 With the `traefik` source enabled, hostnames are instead derived from Traefik

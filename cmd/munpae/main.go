@@ -72,7 +72,9 @@ func run(cfg config.Config, logger *slog.Logger) error {
 	}
 	defer func() { _ = cli.Close() }()
 
-	src, err := buildSources(cfg, cli, logger)
+	m := metrics.New(version)
+
+	src, err := buildSources(cfg, cli, logger, m.ObserveDeprecatedLabel)
 	if err != nil {
 		return err
 	}
@@ -85,7 +87,6 @@ func run(cfg config.Config, logger *slog.Logger) error {
 		return err
 	}
 	rec := reconcile.New(src, prov, cfg.DomainFilter, cfg.DefaultTarget, cfg.Policy, logger)
-	m := metrics.New(version)
 	m.Serve(ctx, cfg.MetricsAddr, logger)
 
 	logger.Info("munpae started",
@@ -122,14 +123,14 @@ func run(cfg config.Config, logger *slog.Logger) error {
 	}
 }
 
-func buildSources(cfg config.Config, cli client.APIClient, logger *slog.Logger) (source.Source, error) {
+func buildSources(cfg config.Config, cli client.APIClient, logger *slog.Logger, onDeprecated func(string)) (source.Source, error) {
 	var multi source.Multi
 	for _, name := range cfg.Sources {
 		switch name {
 		case "docker":
-			multi = append(multi, source.NewDockerLabel(cli, cfg.LabelPrefix, logger))
+			multi = append(multi, source.NewDockerLabel(cli, cfg.LabelPrefix, logger, onDeprecated))
 		case "traefik":
-			multi = append(multi, source.NewTraefik(cli, cfg.LabelPrefix, cfg.Traefik.Entrypoints, logger))
+			multi = append(multi, source.NewTraefik(cli, cfg.LabelPrefix, cfg.Traefik.Entrypoints, logger, onDeprecated))
 		default:
 			return nil, fmt.Errorf("unknown source %q", name)
 		}

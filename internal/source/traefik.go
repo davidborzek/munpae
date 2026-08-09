@@ -15,19 +15,21 @@ import (
 // Traefik builds endpoints from Traefik router labels. Hostnames come from the
 // `traefik.http.routers.<r>.rule` matcher (Host()/HostSNI()); the record target
 // is the anchor mapped from the router's entrypoint via labels on the traefik
-// container (`<prefix>.dns/traefik.entrypoint.<ep>.target`), unless the
-// container overrides it with `<prefix>.dns/target`.
+// container (`<prefix>.dns.traefik.entrypoint.<ep>.target`), unless the
+// container overrides it with `<prefix>.dns.target`.
+//
+// The legacy slash form (`<prefix>.dns/...`) is still read but deprecated; see
+// LABEL-SPEC.md.
 type Traefik struct {
 	cli         client.APIClient
-	prefix      string
 	entrypoints []string // instance filter; empty = publish all entrypoints
-	log         *slog.Logger
+	r           *labelReader
 }
 
 // NewTraefik returns a Traefik source. entrypoints scopes which entrypoints
 // this instance publishes (nil/empty = all).
-func NewTraefik(cli client.APIClient, prefix string, entrypoints []string, log *slog.Logger) *Traefik {
-	return &Traefik{cli: cli, prefix: prefix, entrypoints: entrypoints, log: log}
+func NewTraefik(cli client.APIClient, prefix string, entrypoints []string, log *slog.Logger, onDeprecated func(string)) *Traefik {
+	return &Traefik{cli: cli, entrypoints: entrypoints, r: newLabelReader(prefix, log, onDeprecated)}
 }
 
 // Endpoints implements Source.
@@ -41,10 +43,10 @@ func (s *Traefik) Endpoints(ctx context.Context) ([]endpoint.Endpoint, error) {
 	seen := map[string]bool{} // dedup by hostname; first matching entrypoint wins
 	var out []endpoint.Endpoint
 	for _, c := range summaries {
-		if strings.EqualFold(c.Labels[s.prefix+".dns/exclude"], "true") {
+		if strings.EqualFold(s.r.field(c.Labels, "exclude"), "true") {
 			continue
 		}
-		override := strings.TrimSpace(c.Labels[s.prefix+".dns/target"])
+		override := strings.TrimSpace(s.r.field(c.Labels, "target"))
 		for _, r := range parseRouters(c.Labels) {
 			hosts := parseHosts(r.rule)
 			if len(hosts) == 0 {
@@ -86,17 +88,33 @@ func (s *Traefik) publishes(ep string) bool {
 	return false
 }
 
-// entrypointTargets collects the `<prefix>.dns/traefik.entrypoint.<ep>.target`
-// map from container labels (conventionally the traefik container's).
+// entrypointTargets collects the `<prefix>.dns.traefik.entrypoint.<ep>.target`
+// map from container labels (conventionally the traefik container's). The
+// legacy `<prefix>.dns/traefik.entrypoint.<ep>.target` (slash) form is still
+// honoured but deprecated; the dotted form wins when both are set.
 func (s *Traefik) entrypointTargets(summaries []container.Summary) map[string]string {
-	key := s.prefix + ".dns/traefik.entrypoint."
+	const infix = "traefik.entrypoint."
+	newKey := s.r.prefix + dnsDot + infix
+	oldKey := s.r.prefix + dnsSlash + infix
 	m := map[string]string{}
+	// Deprecated slash form first; the dotted form below overwrites it.
 	for _, c := range summaries {
 		for k, v := range c.Labels {
-			if v == "" || !strings.HasPrefix(k, key) || !strings.HasSuffix(k, ".target") {
+			if v == "" || !strings.HasSuffix(k, ".target") || !strings.HasPrefix(k, oldKey) {
 				continue
 			}
-			if ep := strings.TrimSuffix(strings.TrimPrefix(k, key), ".target"); ep != "" {
+			if ep := strings.TrimSuffix(strings.TrimPrefix(k, oldKey), ".target"); ep != "" {
+				s.r.deprecate(k)
+				m[ep] = v
+			}
+		}
+	}
+	for _, c := range summaries {
+		for k, v := range c.Labels {
+			if v == "" || !strings.HasSuffix(k, ".target") || !strings.HasPrefix(k, newKey) {
+				continue
+			}
+			if ep := strings.TrimSuffix(strings.TrimPrefix(k, newKey), ".target"); ep != "" {
 				m[ep] = v
 			}
 		}

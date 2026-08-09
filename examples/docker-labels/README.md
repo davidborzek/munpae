@@ -2,7 +2,7 @@
 
 Runs munpae against two labelled workloads (`db`, `app`) in **dry-run**, so it
 logs the DNS records it would publish without touching any backend. This uses
-the `docker` source: you declare records with explicit `munpae.dns/*` labels.
+the `docker` source: you declare records with explicit `munpae.dns.*` labels.
 
 ## Run
 
@@ -28,7 +28,7 @@ curl -fsS localhost:9333/metrics | grep '^munpae_'
 ## What it demonstrates
 
 - **`db`** publishes a single **A** record via explicit
-  `munpae.dns/hostname` + `munpae.dns/target` labels.
+  `munpae.dns.hostname` + `munpae.dns.target` labels.
 - **`app`** publishes **two names** (`app`, `www`) sharing one **CNAME** target
   — the record type is inferred from the target (hostname → CNAME, IP → A).
 

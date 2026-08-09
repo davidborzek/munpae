@@ -35,8 +35,8 @@ services:
     labels:
       # Entrypoint → DNS target anchors, owned by the reverse proxy. A router on
       # web-internal resolves to internal.example.com, web-external to external.
-      munpae.dns/traefik.entrypoint.web-internal.target: internal.example.com
-      munpae.dns/traefik.entrypoint.web-external.target: external.example.com
+      munpae.dns.traefik.entrypoint.web-internal.target: internal.example.com
+      munpae.dns.traefik.entrypoint.web-external.target: external.example.com
 
   # Internal-only app: routed on web-internal → CNAME to internal.example.com.
   api:

@@ -17,15 +17,16 @@ import (
 
 // Metrics holds munpae's instrumentation and its dedicated registry.
 type Metrics struct {
-	reg           *prometheus.Registry
-	reconciles    *prometheus.CounterVec
-	reconcileTime prometheus.Histogram
-	lastReconcile prometheus.Gauge
-	lastSuccess   prometheus.Gauge
-	ready         prometheus.Gauge
-	managed       prometheus.Gauge
-	changes       *prometheus.CounterVec
-	watchRestarts prometheus.Counter
+	reg              *prometheus.Registry
+	reconciles       *prometheus.CounterVec
+	reconcileTime    prometheus.Histogram
+	lastReconcile    prometheus.Gauge
+	lastSuccess      prometheus.Gauge
+	ready            prometheus.Gauge
+	managed          prometheus.Gauge
+	changes          *prometheus.CounterVec
+	watchRestarts    prometheus.Counter
+	deprecatedLabels *prometheus.CounterVec
 }
 
 // New registers and returns the metric collectors on a private registry.
@@ -70,8 +71,12 @@ func New(version string) *Metrics {
 			Name: "munpae_watch_restarts_total",
 			Help: "Total Docker event-stream resubscriptions.",
 		}),
+		deprecatedLabels: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "munpae_deprecated_label_total",
+			Help: "Deprecated container label keys encountered, by label key.",
+		}, []string{"label"}),
 	}
-	reg.MustRegister(m.reconciles, m.reconcileTime, m.lastReconcile, m.lastSuccess, m.ready, m.managed, m.changes, m.watchRestarts)
+	reg.MustRegister(m.reconciles, m.reconcileTime, m.lastReconcile, m.lastSuccess, m.ready, m.managed, m.changes, m.watchRestarts, m.deprecatedLabels)
 	reg.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Name:        "munpae_build_info",
 		Help:        "Build information, always 1.",
@@ -91,6 +96,11 @@ func (m *Metrics) ObserveReconcile(success bool, d time.Duration) {
 	} else {
 		m.ready.Set(0)
 	}
+}
+
+// ObserveDeprecatedLabel counts one use of a deprecated container label key.
+func (m *Metrics) ObserveDeprecatedLabel(label string) {
+	m.deprecatedLabels.WithLabelValues(label).Inc()
 }
 
 // SetManaged records how many records are in the desired state.

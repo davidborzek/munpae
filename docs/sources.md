@@ -8,13 +8,19 @@ MUNPAE_SOURCES: "docker,traefik"
 ```
 
 All label keys use the `MUNPAE_LABEL_PREFIX` namespace (default `munpae`), so
-the examples below assume `munpae.dns/*`.
+the examples below assume `munpae.dns.*`.
+
+> [!NOTE]
+> The separator between `dns` and the field is a dot (`munpae.dns.hostname`). The
+> older slash form (`munpae.dns/hostname`) is still read for backwards
+> compatibility but is **deprecated** — it logs a warning and increments
+> `munpae_deprecated_label_total`, and will be removed in a future minor release.
 
 Any container can opt out of every source with:
 
 ```yaml
 labels:
-  munpae.dns/exclude: "true"
+  munpae.dns.exclude: "true"
 ```
 
 ## `docker-label`
@@ -24,20 +30,20 @@ without a Traefik route: a bare TCP service, a manual A/CNAME, etc.
 
 | Label | Required | Purpose |
 |---|---|---|
-| `munpae.dns/hostname` | yes | Record name(s). Comma-separated for several. |
-| `munpae.dns/target` | no | RDATA. Omitted → `MUNPAE_DEFAULT_TARGET`. |
-| `munpae.dns/ttl` | no | TTL in seconds. |
-| `munpae.dns/cloudflare-proxied` | no | Per-record Cloudflare proxied override (`true`/`false`). See [cloudflare](providers.md#cloudflare). |
-| `munpae.dns/exclude` | no | `true` skips the container. |
+| `munpae.dns.hostname` | yes | Record name(s). Comma-separated for several. |
+| `munpae.dns.target` | no | RDATA. Omitted → `MUNPAE_DEFAULT_TARGET`. |
+| `munpae.dns.ttl` | no | TTL in seconds. |
+| `munpae.dns.cloudflare-proxied` | no | Per-record Cloudflare proxied override (`true`/`false`). See [cloudflare](providers.md#cloudflare). |
+| `munpae.dns.exclude` | no | `true` skips the container. |
 
 ```yaml
 services:
   db:
     image: postgres
     labels:
-      munpae.dns/hostname: "db.example.com,postgres.example.com"
-      munpae.dns/target: 192.0.2.2
-      munpae.dns/ttl: "300"
+      munpae.dns.hostname: "db.example.com,postgres.example.com"
+      munpae.dns.target: 192.0.2.2
+      munpae.dns.ttl: "300"
 ```
 
 The record type is inferred from the target: an IP → `A`/`AAAA`, a hostname →
@@ -69,8 +75,8 @@ the Traefik container itself (the component that owns that topology fact):
 ```yaml
 # on the traefik container
 labels:
-  munpae.dns/traefik.entrypoint.internal-secure.target: internal.example.com
-  munpae.dns/traefik.entrypoint.external-secure.target: external.example.com
+  munpae.dns.traefik.entrypoint.internal-secure.target: internal.example.com
+  munpae.dns.traefik.entrypoint.external-secure.target: external.example.com
 ```
 
 A router on `internal-secure` then resolves to `internal.example.com`, one on
@@ -93,7 +99,7 @@ MUNPAE_TRAEFIK_ENTRYPOINTS: "external-secure"
 
 For each derived hostname the target is chosen in this order:
 
-1. `munpae.dns/target` on the routed container (per-app override),
+1. `munpae.dns.target` on the routed container (per-app override),
 2. the entrypoint→target anchor map,
 3. `MUNPAE_DEFAULT_TARGET` (core fallback).
 
