@@ -47,3 +47,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   still honoured — the dot form wins when both are set — but logs a warning and
   increments `munpae_deprecated_label_total{label}`. It will be removed in a
   future minor release.
+
+### Fixed
+
+- Cloudflare: TXT record content is now unquoted on read. Cloudflare stores TXT
+  content wrapped in double quotes (splitting long values into 255-byte quoted
+  chunks); reading it back verbatim made every diff see `"x"` != `x`.
+- Ownership TXT records are reconciled against live provider state instead of
+  being mirrored blindly onto every create/delete. A managed record whose
+  ownership TXT still exists (e.g. the record was deleted out from under munpae)
+  is now recreated without re-creating the surviving TXT, fixing a reconcile
+  loop that repeatedly failed with `An identical record already exists (81058)`.
