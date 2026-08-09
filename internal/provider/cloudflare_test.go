@@ -157,6 +157,32 @@ func TestParamsProxyAndTTL(t *testing.T) {
 	}
 }
 
+func TestParamsQuoteTXT(t *testing.T) {
+	c := &Cloudflare{}
+	raw := "heritage=munpae,munpae/owner=me"
+	txt := endpoint.New("munpae.cname-app.example.com", []string{raw}, endpoint.TypeTXT, 0)
+
+	// TXT content is sent pre-quoted so Cloudflare does not add the quotes
+	// itself (and stop warning about it).
+	cp := c.createParams(txt, raw)
+	if cp.Content != `"`+raw+`"` {
+		t.Fatalf("create TXT content = %q, want quoted", cp.Content)
+	}
+	up := c.updateParams(txt, raw, "rid")
+	if up.Content != `"`+raw+`"` {
+		t.Fatalf("update TXT content = %q, want quoted", up.Content)
+	}
+	// Write-then-read must round-trip: what we send, quoted, unquotes back to raw.
+	if got := unquoteTXT(cp.Content); got != raw {
+		t.Fatalf("quote/unquote round-trip = %q, want %q", got, raw)
+	}
+	// Non-TXT content is untouched.
+	a := endpoint.New("h.example.com", []string{"192.0.2.1"}, endpoint.TypeA, 0)
+	if got := c.createParams(a, "192.0.2.1").Content; got != "192.0.2.1" {
+		t.Fatalf("A content = %q, want unquoted", got)
+	}
+}
+
 func TestApplyCreatePerTarget(t *testing.T) {
 	f := &fakeCF{zones: []cloudflare.Zone{{ID: "z1", Name: "example.com"}}}
 	c := &Cloudflare{api: f}

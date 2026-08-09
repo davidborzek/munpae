@@ -199,7 +199,7 @@ func (c *Cloudflare) createParams(e endpoint.Endpoint, target string) cloudflare
 	return cloudflare.CreateDNSRecordParams{
 		Type:    string(e.RecordType),
 		Name:    e.DNSName,
-		Content: target,
+		Content: quoteTXT(e.RecordType, target),
 		TTL:     c.ttl(e),
 		Proxied: &proxied,
 	}
@@ -211,7 +211,7 @@ func (c *Cloudflare) updateParams(e endpoint.Endpoint, target, recordID string) 
 		ID:      recordID,
 		Type:    string(e.RecordType),
 		Name:    e.DNSName,
-		Content: target,
+		Content: quoteTXT(e.RecordType, target),
 		TTL:     c.ttl(e),
 		Proxied: &proxied,
 	}
@@ -250,6 +250,21 @@ func recordType(t string) (endpoint.RecordType, bool) {
 	default:
 		return "", false
 	}
+}
+
+// quoteTXT wraps TXT content in double quotes for the Cloudflare API. Cloudflare
+// requires TXT content to be quoted and adds the quotes itself (logging a
+// warning) when sent raw; sending it pre-quoted avoids that warning and is the
+// exact inverse of unquoteTXT on read. Non-TXT content, and already-quoted
+// content, are returned unchanged.
+func quoteTXT(rt endpoint.RecordType, s string) string {
+	if rt != endpoint.TypeTXT {
+		return s
+	}
+	if len(s) >= 2 && strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`) {
+		return s
+	}
+	return strconv.Quote(s)
 }
 
 // unquoteTXT normalizes Cloudflare's quoted TXT content back to the raw value.
