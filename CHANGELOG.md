@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/davidborzek/munpae/compare/v0.1.0...v0.2.0) (2026-08-09)
+
+
+### Features
+
+* adopt dotted label separator per label-spec ([#2](https://github.com/davidborzek/munpae/issues/2)) ([4f1109d](https://github.com/davidborzek/munpae/commit/4f1109dee424904af03534563e5fba785e921eb0))
+
+
+### Bug Fixes
+
+* **cloudflare:** send TXT content pre-quoted ([#5](https://github.com/davidborzek/munpae/issues/5)) ([177b5ca](https://github.com/davidborzek/munpae/commit/177b5cadd56017f86809aab1bd8eb49a49629c59))
+* stop reconcile loop on TXT ownership records ([#4](https://github.com/davidborzek/munpae/issues/4)) ([590def1](https://github.com/davidborzek/munpae/commit/590def18f9c63517becd8daa67b7dd05da5885ed))
+
 ## 0.1.0 (2026-07-22)
 
 
