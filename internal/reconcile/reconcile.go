@@ -79,7 +79,7 @@ func (r *Reconciler) Run(ctx context.Context) (Result, error) {
 		r.log.Debug("no changes")
 		return res, nil
 	}
-	r.log.Info("applying", "create", res.Create, "update", res.Update, "delete", res.Delete)
+	r.log.Info("applying", "create", describe(changes.Create), "update", describe(changes.Update), "delete", describe(changes.Delete))
 	if err := r.prov.ApplyChanges(ctx, changes); err != nil {
 		return res, err
 	}
@@ -127,4 +127,17 @@ func (r *Reconciler) inDomain(name string) bool {
 		}
 	}
 	return false
+}
+
+// describe renders endpoints for logging as "TYPE/name" (the endpoint Key),
+// so an apply log shows exactly which records are affected.
+func describe(eps []endpoint.Endpoint) []string {
+	if len(eps) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(eps))
+	for _, e := range eps {
+		out = append(out, e.Key())
+	}
+	return out
 }
