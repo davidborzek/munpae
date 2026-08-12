@@ -26,9 +26,9 @@ type Config struct {
 	TXTPrefix      string        `env:"TXT_PREFIX" envDefault:"munpae."`  // ownership TXT name prefix; keep stable once set
 	ResyncInterval time.Duration `env:"RESYNC_INTERVAL" envDefault:"60s"` // periodic full resync (clamped > 0)
 	DebounceDelay  time.Duration `env:"DEBOUNCE_DELAY" envDefault:"1s"`   // event coalescing window (clamped > 0)
-	GracePeriod    time.Duration `env:"GRACE_PERIOD" envDefault:"5m"`    // keep records of vanished containers this long before deleting (0 disables)
-	IncludeStopped bool          `env:"INCLUDE_STOPPED"`                 // treat stopped-but-existing containers as still desired (die → no delete)
-	MetricsAddr    string        `env:"METRICS_ADDR" envDefault:":9333"` // /metrics + /healthz listen address; blank disables
+	GracePeriod    time.Duration `env:"GRACE_PERIOD" envDefault:"5m"`     // keep records of vanished containers this long before deleting (0 disables)
+	IncludeStopped bool          `env:"INCLUDE_STOPPED"`                  // treat stopped-but-existing containers as still desired (die → no delete)
+	MetricsAddr    string        `env:"METRICS_ADDR" envDefault:":9333"`  // /metrics + /healthz listen address; blank disables
 	LogLevel       string        `env:"LOG_LEVEL" envDefault:"info"`
 	DryRun         bool          `env:"DRY_RUN"`
 
