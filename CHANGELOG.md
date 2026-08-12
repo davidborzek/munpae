@@ -52,6 +52,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Container label keys now use a dot between `dns` and the field
   (`munpae.dns.hostname`), conforming to the shared label convention
   (`LABEL-SPEC.md`).
+- Records for vanished containers are no longer deleted the instant a container
+  drops out of the running set. `MUNPAE_GRACE_PERIOD` (default `5m`) keeps the
+  record during a restart or compose-recreate, so `sync` no longer flaps DNS on
+  container updates; it also survives a munpae restart by seeding from owned
+  records on startup.
+- `MUNPAE_INCLUDE_STOPPED` (`false`) makes the sources treat stopped-but-existing
+  containers as still desired, so a `docker stop` (die) keeps its record until
+  the container is removed.
 
 ### Deprecated
 

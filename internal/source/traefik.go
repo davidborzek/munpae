@@ -21,20 +21,22 @@ import (
 // The legacy slash form (`<prefix>.dns/...`) is still read but deprecated; see
 // LABEL-SPEC.md.
 type Traefik struct {
-	cli         client.APIClient
-	entrypoints []string // instance filter; empty = publish all entrypoints
-	r           *labelReader
+	cli            client.APIClient
+	entrypoints    []string // instance filter; empty = publish all entrypoints
+	includeStopped bool
+	r              *labelReader
 }
 
 // NewTraefik returns a Traefik source. entrypoints scopes which entrypoints
-// this instance publishes (nil/empty = all).
-func NewTraefik(cli client.APIClient, prefix string, entrypoints []string, log *slog.Logger, onDeprecated func(string)) *Traefik {
-	return &Traefik{cli: cli, entrypoints: entrypoints, r: newLabelReader(prefix, log, onDeprecated)}
+// this instance publishes (nil/empty = all); includeStopped makes the source
+// treat stopped-but-existing containers as still desired.
+func NewTraefik(cli client.APIClient, prefix string, entrypoints []string, includeStopped bool, log *slog.Logger, onDeprecated func(string)) *Traefik {
+	return &Traefik{cli: cli, entrypoints: entrypoints, includeStopped: includeStopped, r: newLabelReader(prefix, log, onDeprecated)}
 }
 
 // Endpoints implements Source.
 func (s *Traefik) Endpoints(ctx context.Context) ([]endpoint.Endpoint, error) {
-	summaries, err := s.cli.ContainerList(ctx, container.ListOptions{})
+	summaries, err := s.cli.ContainerList(ctx, container.ListOptions{All: s.includeStopped})
 	if err != nil {
 		return nil, err
 	}

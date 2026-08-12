@@ -57,7 +57,7 @@ func TestTraefikEndpoints(t *testing.T) {
 	}
 
 	collect := func(entrypoints []string) map[string]string {
-		s := NewTraefik(fakeDocker{summaries: summaries}, "munpae", entrypoints, slog.Default(), nil)
+		s := NewTraefik(&fakeDocker{summaries: summaries}, "munpae", entrypoints, false, slog.Default(), nil)
 		eps, err := s.Endpoints(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -95,13 +95,13 @@ func TestTraefikEndpoints(t *testing.T) {
 
 func TestTraefikDeprecatedSlash(t *testing.T) {
 	var seen []string
-	s := NewTraefik(fakeDocker{summaries: []container.Summary{
+	s := NewTraefik(&fakeDocker{summaries: []container.Summary{
 		{Labels: map[string]string{"munpae.dns/traefik.entrypoint.web.target": "anchor.example.com"}},
 		{Labels: map[string]string{
 			"traefik.http.routers.app.rule":        "Host(`app.example.com`)",
 			"traefik.http.routers.app.entrypoints": "web",
 		}},
-	}}, "munpae", nil, slog.Default(), func(k string) { seen = append(seen, k) })
+	}}, "munpae", nil, false, slog.Default(), func(k string) { seen = append(seen, k) })
 
 	eps, err := s.Endpoints(context.Background())
 	if err != nil {

@@ -86,7 +86,7 @@ func run(cfg config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	rec := reconcile.New(src, prov, cfg.DomainFilter, cfg.DefaultTarget, cfg.Policy, logger)
+	rec := reconcile.New(src, prov, cfg.DomainFilter, cfg.DefaultTarget, cfg.Policy, cfg.GracePeriod, logger)
 	m.Serve(ctx, cfg.MetricsAddr, logger)
 
 	logger.Info("munpae started",
@@ -128,9 +128,9 @@ func buildSources(cfg config.Config, cli client.APIClient, logger *slog.Logger, 
 	for _, name := range cfg.Sources {
 		switch name {
 		case "docker":
-			multi = append(multi, source.NewDockerLabel(cli, cfg.LabelPrefix, logger, onDeprecated))
+			multi = append(multi, source.NewDockerLabel(cli, cfg.LabelPrefix, cfg.IncludeStopped, logger, onDeprecated))
 		case "traefik":
-			multi = append(multi, source.NewTraefik(cli, cfg.LabelPrefix, cfg.Traefik.Entrypoints, logger, onDeprecated))
+			multi = append(multi, source.NewTraefik(cli, cfg.LabelPrefix, cfg.Traefik.Entrypoints, cfg.IncludeStopped, logger, onDeprecated))
 		default:
 			return nil, fmt.Errorf("unknown source %q", name)
 		}
