@@ -23,18 +23,21 @@ import (
 // The legacy `<prefix>.dns/<field>` (slash) form is still read for backwards
 // compatibility but is deprecated; see LABEL-SPEC.md.
 type DockerLabel struct {
-	cli client.APIClient
-	r   *labelReader
+	cli            client.APIClient
+	includeStopped bool
+	r              *labelReader
 }
 
-// NewDockerLabel returns a DockerLabel source.
-func NewDockerLabel(cli client.APIClient, prefix string, log *slog.Logger, onDeprecated func(string)) *DockerLabel {
-	return &DockerLabel{cli: cli, r: newLabelReader(prefix, log, onDeprecated)}
+// NewDockerLabel returns a DockerLabel source. includeStopped makes the source
+// treat stopped-but-existing containers as still desired (their records are
+// kept until the container is removed) instead of listing only running ones.
+func NewDockerLabel(cli client.APIClient, prefix string, includeStopped bool, log *slog.Logger, onDeprecated func(string)) *DockerLabel {
+	return &DockerLabel{cli: cli, includeStopped: includeStopped, r: newLabelReader(prefix, log, onDeprecated)}
 }
 
 // Endpoints implements Source.
 func (s *DockerLabel) Endpoints(ctx context.Context) ([]endpoint.Endpoint, error) {
-	summaries, err := s.cli.ContainerList(ctx, container.ListOptions{})
+	summaries, err := s.cli.ContainerList(ctx, container.ListOptions{All: s.includeStopped})
 	if err != nil {
 		return nil, err
 	}

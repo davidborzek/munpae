@@ -14,20 +14,22 @@ import (
 // implemented (the only method DockerLabel calls).
 type fakeDocker struct {
 	client.APIClient
-	summaries []container.Summary
+	summaries    []container.Summary
+	lastListOpts container.ListOptions
 }
 
-func (f fakeDocker) ContainerList(context.Context, container.ListOptions) ([]container.Summary, error) {
+func (f *fakeDocker) ContainerList(_ context.Context, opts container.ListOptions) ([]container.Summary, error) {
+	f.lastListOpts = opts
 	return f.summaries, nil
 }
 
 func TestDockerLabelEndpoints(t *testing.T) {
-	s := NewDockerLabel(fakeDocker{summaries: []container.Summary{
+	s := NewDockerLabel(&fakeDocker{summaries: []container.Summary{
 		{Labels: map[string]string{"munpae.dns.hostname": "a.example.com", "munpae.dns.target": "10.0.0.1"}},
 		{Labels: map[string]string{"munpae.dns.hostname": "b.example.com, c.example.com", "munpae.dns.target": "10.0.0.2", "munpae.dns.ttl": "300"}},
 		{Labels: map[string]string{"munpae.dns.hostname": "x.example.com", "munpae.dns.exclude": "true"}},
 		{Labels: map[string]string{"unrelated": "1"}},
-	}}, "munpae", slog.Default(), nil)
+	}}, "munpae", false, slog.Default(), nil)
 
 	eps, err := s.Endpoints(context.Background())
 	if err != nil {
@@ -61,9 +63,9 @@ func TestDockerLabelEndpoints(t *testing.T) {
 }
 
 func TestDockerLabelProxied(t *testing.T) {
-	s := NewDockerLabel(fakeDocker{summaries: []container.Summary{
+	s := NewDockerLabel(&fakeDocker{summaries: []container.Summary{
 		{Labels: map[string]string{"munpae.dns.hostname": "p.example.com", "munpae.dns.target": "anchor.example.com", "munpae.dns.cloudflare-proxied": "True"}},
-	}}, "munpae", slog.Default(), nil)
+	}}, "munpae", false, slog.Default(), nil)
 
 	eps, err := s.Endpoints(context.Background())
 	if err != nil {
@@ -77,9 +79,9 @@ func TestDockerLabelProxied(t *testing.T) {
 
 func TestDockerLabelDeprecatedSlash(t *testing.T) {
 	var seen []string
-	s := NewDockerLabel(fakeDocker{summaries: []container.Summary{
+	s := NewDockerLabel(&fakeDocker{summaries: []container.Summary{
 		{Labels: map[string]string{"munpae.dns/hostname": "old.example.com", "munpae.dns/target": "10.0.0.9"}},
-	}}, "munpae", slog.Default(), func(k string) { seen = append(seen, k) })
+	}}, "munpae", false, slog.Default(), func(k string) { seen = append(seen, k) })
 
 	eps, err := s.Endpoints(context.Background())
 	if err != nil {
@@ -99,13 +101,13 @@ func TestDockerLabelDeprecatedSlash(t *testing.T) {
 }
 
 func TestDockerLabelDottedWins(t *testing.T) {
-	s := NewDockerLabel(fakeDocker{summaries: []container.Summary{
+	s := NewDockerLabel(&fakeDocker{summaries: []container.Summary{
 		{Labels: map[string]string{
 			"munpae.dns.hostname": "h.example.com",
 			"munpae.dns.target":   "10.0.0.1", // dotted (new) wins
 			"munpae.dns/target":   "10.9.9.9", // slash (deprecated) loses
 		}},
-	}}, "munpae", slog.Default(), nil)
+	}}, "munpae", false, slog.Default(), nil)
 
 	eps, err := s.Endpoints(context.Background())
 	if err != nil {
@@ -113,5 +115,27 @@ func TestDockerLabelDottedWins(t *testing.T) {
 	}
 	if len(eps) != 1 || len(eps[0].Targets) != 1 || eps[0].Targets[0] != "10.0.0.1" {
 		t.Fatalf("dotted form must win over slash: %+v", eps)
+	}
+}
+
+func TestDockerLabelIncludeStopped(t *testing.T) {
+	d := &fakeDocker{summaries: []container.Summary{
+		{Labels: map[string]string{"munpae.dns.hostname": "a.example.com", "munpae.dns.target": "10.0.0.1"}},
+	}}
+	s := NewDockerLabel(d, "munpae", true, slog.Default(), nil)
+	if _, err := s.Endpoints(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !d.lastListOpts.All {
+		t.Fatal("includeStopped must request All:true from Docker so stopped containers stay desired")
+	}
+
+	d2 := &fakeDocker{}
+	s2 := NewDockerLabel(d2, "munpae", false, slog.Default(), nil)
+	if _, err := s2.Endpoints(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if d2.lastListOpts.All {
+		t.Fatal("default (includeStopped=false) must request only running containers")
 	}
 }

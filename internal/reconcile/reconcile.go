@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/davidborzek/munpae/internal/endpoint"
 	"github.com/davidborzek/munpae/internal/plan"
@@ -22,11 +23,17 @@ type Reconciler struct {
 	defaultTarget string
 	policy        string
 	log           *slog.Logger
+	grace         *graceState // nil when the grace period is disabled
 }
 
-// New returns a Reconciler.
-func New(src source.Source, prov provider.Provider, domainFilter []string, defaultTarget, policy string, log *slog.Logger) *Reconciler {
-	return &Reconciler{src: src, prov: prov, domainFilter: domainFilter, defaultTarget: defaultTarget, policy: policy, log: log}
+// New returns a Reconciler. gracePeriod sets the deletion-grace window; 0
+// disables the grace mechanism entirely (the pre-grace behaviour).
+func New(src source.Source, prov provider.Provider, domainFilter []string, defaultTarget, policy string, gracePeriod time.Duration, log *slog.Logger) *Reconciler {
+	var g *graceState
+	if gracePeriod > 0 {
+		g = newGraceState(gracePeriod)
+	}
+	return &Reconciler{src: src, prov: prov, domainFilter: domainFilter, defaultTarget: defaultTarget, policy: policy, log: log, grace: g}
 }
 
 // Result summarizes one reconcile run for instrumentation.
@@ -57,12 +64,22 @@ func (r *Reconciler) Run(ctx context.Context) (Result, error) {
 	current = r.scope(current)
 
 	changes := plan.Calculate(desired, current, r.policy)
+	if r.grace != nil {
+		now := time.Now()
+		if !r.grace.seeded {
+			r.grace.seed(now, current)
+			r.grace.seeded = true
+		}
+		r.grace.observe(now, desired)
+		r.grace.prune(now)
+		changes.Delete = r.grace.filterDeletes(changes.Delete)
+	}
 	res := Result{Managed: len(desired), Create: len(changes.Create), Update: len(changes.Update), Delete: len(changes.Delete)}
 	if changes.Empty() {
 		r.log.Debug("no changes")
 		return res, nil
 	}
-	r.log.Info("applying", "create", res.Create, "update", res.Update, "delete", res.Delete)
+	r.log.Info("applying", "create", describe(changes.Create), "update", describe(changes.Update), "delete", describe(changes.Delete))
 	if err := r.prov.ApplyChanges(ctx, changes); err != nil {
 		return res, err
 	}
@@ -110,4 +127,17 @@ func (r *Reconciler) inDomain(name string) bool {
 		}
 	}
 	return false
+}
+
+// describe renders endpoints for logging as "TYPE/name" (the endpoint Key),
+// so an apply log shows exactly which records are affected.
+func describe(eps []endpoint.Endpoint) []string {
+	if len(eps) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(eps))
+	for _, e := range eps {
+		out = append(out, e.Key())
+	}
+	return out
 }

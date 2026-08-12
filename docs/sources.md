@@ -23,6 +23,32 @@ labels:
   munpae.dns.exclude: "true"
 ```
 
+## Grace & restarts
+
+When a container restarts — `docker restart`, or a `docker compose up` that
+recreates it after an image update — the container is briefly absent from the
+running set. Without a safeguard, munpae's `sync` policy would delete the
+record at that moment (it's in the owned set but not in the desired set) and
+re-create it when the container comes back: a DNS flap.
+
+`MUNPAE_GRACE_PERIOD` (default `5m`) prevents this. A record whose container
+vanishes is kept — and still published — for the grace window, and only
+deleted once the container has been absent for longer than that. A restart or
+recreate that finishes within the window therefore never causes a deletion.
+Set it to `0` to disable (immediate deletion, the pre-grace behaviour).
+
+The grace window also covers a munpae restart that happens *during* a
+container's recreate: on startup munpae seeds the grace set from the records it
+already owns, so those records get a full grace window before any deletion is
+considered, rather than being dropped the moment munpae comes back up.
+
+Separately, `MUNPAE_INCLUDE_STOPPED` (default `false`) treats containers that
+still exist but are stopped (`docker stop`, which emits a `die` event without a
+`destroy`) as still desired. When enabled, a stopped container keeps its record
+until the container is actually removed (`docker rm`). When disabled (default),
+a stopped container is treated like a vanished one and its record is deleted
+after the grace window, unless it comes back.
+
 ## `docker-label`
 
 Explicit by nature — you declare the record directly. Useful for anything

@@ -25,6 +25,8 @@ startup with a clear error rather than silently falling back.
 | `MUNPAE_LABEL_PREFIX` | `munpae` | Docker label namespace → `<prefix>.dns.*`. |
 | `MUNPAE_RESYNC_INTERVAL` | `60s` | Periodic full resync (clamped to > 0). |
 | `MUNPAE_DEBOUNCE_DELAY` | `1s` | Event coalescing window (clamped to > 0). |
+| `MUNPAE_GRACE_PERIOD` | `5m` | Keep records of vanished containers this long before deleting (`0` disables). See [Grace & restarts](sources.md#grace--restarts). |
+| `MUNPAE_INCLUDE_STOPPED` | `false` | Treat stopped-but-existing containers as still desired, so `docker stop` (die) does not delete their record until the container is removed. |
 | `MUNPAE_METRICS_ADDR` | `:9333` | Listen address for `/metrics` + `/healthz`; blank disables the server. |
 | `MUNPAE_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
 | `MUNPAE_DRY_RUN` | `false` | Log the plan, change nothing. |
