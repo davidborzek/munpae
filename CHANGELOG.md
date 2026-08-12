@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1](https://github.com/davidborzek/munpae/compare/v0.2.0...v0.2.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* **reconcile:** don't flap DNS on container restarts ([#6](https://github.com/davidborzek/munpae/issues/6)) ([6cc6875](https://github.com/davidborzek/munpae/commit/6cc6875fdd76a5ad929f64182574e307ce6744d4))
+
 ## [0.2.0](https://github.com/davidborzek/munpae/compare/v0.1.0...v0.2.0) (2026-08-09)
 
 
