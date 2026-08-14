@@ -101,13 +101,22 @@ the Traefik container itself (the component that owns that topology fact):
 ```yaml
 # on the traefik container
 labels:
-  munpae.dns.traefik.entrypoint.internal-secure.target: internal.example.com
-  munpae.dns.traefik.entrypoint.external-secure.target: external.example.com
+  munpae.dns.traefik.entrypoint.internal-secure.target:   internal.example.com
+  munpae.dns.traefik.entrypoint.internal-secure.priority: "100"   # optional, default 0
+  munpae.dns.traefik.entrypoint.external-secure.target:   external.example.com
+  munpae.dns.traefik.entrypoint.external-secure.priority: "50"
 ```
 
-A router on `internal-secure` then resolves to `internal.example.com`, one on
-`external-secure` to `external.example.com`. A router listing both entrypoints
-is published for both — split-horizon, automatically.
+A router on `internal-secure` resolves to `internal.example.com`, one on
+`external-secure` to `external.example.com`.
+
+When a single hostname maps to **several** entrypoints — one router listing
+both, or two routers with the same `Host(...)` (e.g. a public-path router plus
+an admin catchall) — an instance that publishes both must pick one target. The
+highest **priority** wins (`.priority`, default 0): the internal (bind) instance
+typically gives its internal entrypoint a higher priority, so the LAN horizon
+resolves to the internal anchor while the external instance still publishes the
+external one. Ties are handled under [Target precedence](#target-precedence).
 
 ### Which entrypoints this instance publishes
 
@@ -126,8 +135,29 @@ MUNPAE_TRAEFIK_ENTRYPOINTS: "external-secure"
 For each derived hostname the target is chosen in this order:
 
 1. `munpae.dns.target` on the routed container (per-app override),
-2. the entrypoint→target anchor map,
+2. among the entrypoints this instance publishes, the entrypoint→target anchor
+   with the **highest `.priority`** (default 0),
 3. `MUNPAE_DEFAULT_TARGET` (core fallback).
+
+If a hostname still resolves to **more than one distinct target** at the top of
+this order (e.g. two entrypoints at the same priority with different anchors),
+it is a **conflict**: munpae does not guess — it skips the hostname, logs a
+warning, and increments `munpae_source_conflicts_total{host}`. Resolve it by
+giving one entrypoint a higher `.priority`, setting a per-app `munpae.dns.target`,
+or excluding a router (below).
 
 If none yields a target, the hostname is skipped. Record type is inferred from
 the resolved target.
+
+### Excluding a router
+
+A single router can be kept out of DNS without excluding the whole container:
+
+```yaml
+labels:
+  munpae.dns.traefik.router.<name>.exclude: "true"
+```
+
+Useful when one container has several routers and only some should produce a
+record — e.g. publish the internal admin router but let a separate DNS instance
+own the public one.

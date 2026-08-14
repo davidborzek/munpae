@@ -57,7 +57,7 @@ func TestTraefikEndpoints(t *testing.T) {
 	}
 
 	collect := func(entrypoints []string) map[string]string {
-		s := NewTraefik(&fakeDocker{summaries: summaries}, "munpae", entrypoints, false, slog.Default(), nil)
+		s := NewTraefik(&fakeDocker{summaries: summaries}, "munpae", entrypoints, false, slog.Default(), nil, nil)
 		eps, err := s.Endpoints(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -101,7 +101,7 @@ func TestTraefikDeprecatedSlash(t *testing.T) {
 			"traefik.http.routers.app.rule":        "Host(`app.example.com`)",
 			"traefik.http.routers.app.entrypoints": "web",
 		}},
-	}}, "munpae", nil, false, slog.Default(), func(k string) { seen = append(seen, k) })
+	}}, "munpae", nil, false, slog.Default(), func(k string) { seen = append(seen, k) }, nil)
 
 	eps, err := s.Endpoints(context.Background())
 	if err != nil {
@@ -112,5 +112,105 @@ func TestTraefikDeprecatedSlash(t *testing.T) {
 	}
 	if len(seen) == 0 {
 		t.Error("deprecated anchor label must be reported via onDeprecated")
+	}
+}
+
+func TestTraefikEntrypointPriority(t *testing.T) {
+	summaries := []container.Summary{
+		{Labels: map[string]string{
+			"munpae.dns.traefik.entrypoint.internal-secure.target":   "internal.example.com",
+			"munpae.dns.traefik.entrypoint.internal-secure.priority": "100",
+			"munpae.dns.traefik.entrypoint.external-secure.target":   "external.example.com",
+			"munpae.dns.traefik.entrypoint.external-secure.priority": "50",
+		}},
+		{Labels: map[string]string{ // one host, two routers, two entrypoints
+			"traefik.http.routers.admin.rule":         "Host(`app.example.com`)",
+			"traefik.http.routers.admin.entrypoints":  "internal-secure",
+			"traefik.http.routers.public.rule":        "Host(`app.example.com`)",
+			"traefik.http.routers.public.entrypoints": "external-secure",
+		}},
+	}
+	collect := func(entrypoints []string) map[string]string {
+		s := NewTraefik(&fakeDocker{summaries: summaries}, "munpae", entrypoints, false, slog.Default(), nil, nil)
+		eps, err := s.Endpoints(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := map[string]string{}
+		for _, e := range eps {
+			m[e.DNSName] = e.Targets[0]
+		}
+		return m
+	}
+	// bind (all entrypoints): the higher-priority internal anchor wins.
+	if got := collect(nil)["app.example.com"]; got != "internal.example.com" {
+		t.Errorf("priority: want internal anchor, got %q", got)
+	}
+	// external instance: sees only the external router.
+	if got := collect([]string{"external-secure"})["app.example.com"]; got != "external.example.com" {
+		t.Errorf("external instance: want external anchor, got %q", got)
+	}
+}
+
+func TestTraefikConflict(t *testing.T) {
+	// One host on two entrypoints with EQUAL priority (both default 0) and
+	// distinct targets → unresolved conflict: skipped and reported.
+	summaries := []container.Summary{
+		{Labels: map[string]string{
+			"munpae.dns.traefik.entrypoint.internal-secure.target": "internal.example.com",
+			"munpae.dns.traefik.entrypoint.external-secure.target": "external.example.com",
+		}},
+		{Labels: map[string]string{
+			"traefik.http.routers.admin.rule":         "Host(`app.example.com`)",
+			"traefik.http.routers.admin.entrypoints":  "internal-secure",
+			"traefik.http.routers.public.rule":        "Host(`app.example.com`)",
+			"traefik.http.routers.public.entrypoints": "external-secure",
+		}},
+	}
+	var conflicts []string
+	s := NewTraefik(&fakeDocker{summaries: summaries}, "munpae", nil, false, slog.Default(), nil,
+		func(h string) { conflicts = append(conflicts, h) })
+	eps, err := s.Endpoints(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range eps {
+		if e.DNSName == "app.example.com" {
+			t.Errorf("conflicting host must be skipped, got %+v", e)
+		}
+	}
+	if len(conflicts) != 1 || conflicts[0] != "app.example.com" {
+		t.Errorf("conflict must be reported once for the host, got %v", conflicts)
+	}
+}
+
+func TestTraefikRouterExclude(t *testing.T) {
+	summaries := []container.Summary{
+		{Labels: map[string]string{
+			"munpae.dns.traefik.entrypoint.internal-secure.target": "internal.example.com",
+			"munpae.dns.traefik.entrypoint.external-secure.target": "external.example.com",
+		}},
+		{Labels: map[string]string{
+			"traefik.http.routers.admin.rule":          "Host(`app.example.com`)",
+			"traefik.http.routers.admin.entrypoints":   "internal-secure",
+			"traefik.http.routers.public.rule":         "Host(`pub.example.com`)",
+			"traefik.http.routers.public.entrypoints":  "external-secure",
+			"munpae.dns.traefik.router.public.exclude": "true",
+		}},
+	}
+	s := NewTraefik(&fakeDocker{summaries: summaries}, "munpae", nil, false, slog.Default(), nil, nil)
+	eps, err := s.Endpoints(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, e := range eps {
+		got[e.DNSName] = true
+	}
+	if !got["app.example.com"] {
+		t.Error("non-excluded router must publish its host")
+	}
+	if got["pub.example.com"] {
+		t.Error("excluded router must not publish its host")
 	}
 }

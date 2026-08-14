@@ -27,6 +27,7 @@ type Metrics struct {
 	changes          *prometheus.CounterVec
 	watchRestarts    prometheus.Counter
 	deprecatedLabels *prometheus.CounterVec
+	conflicts        *prometheus.CounterVec
 }
 
 // New registers and returns the metric collectors on a private registry.
@@ -75,8 +76,12 @@ func New(version string) *Metrics {
 			Name: "munpae_deprecated_label_total",
 			Help: "Deprecated container label keys encountered, by label key.",
 		}, []string{"label"}),
+		conflicts: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "munpae_source_conflicts_total",
+			Help: "Hostnames skipped because multiple routers/entrypoints resolved to conflicting targets, by host.",
+		}, []string{"host"}),
 	}
-	reg.MustRegister(m.reconciles, m.reconcileTime, m.lastReconcile, m.lastSuccess, m.ready, m.managed, m.changes, m.watchRestarts, m.deprecatedLabels)
+	reg.MustRegister(m.reconciles, m.reconcileTime, m.lastReconcile, m.lastSuccess, m.ready, m.managed, m.changes, m.watchRestarts, m.deprecatedLabels, m.conflicts)
 	reg.MustRegister(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Name:        "munpae_build_info",
 		Help:        "Build information, always 1.",
@@ -101,6 +106,12 @@ func (m *Metrics) ObserveReconcile(success bool, d time.Duration) {
 // ObserveDeprecatedLabel counts one use of a deprecated container label key.
 func (m *Metrics) ObserveDeprecatedLabel(label string) {
 	m.deprecatedLabels.WithLabelValues(label).Inc()
+}
+
+// ObserveConflict counts a hostname skipped because multiple routers or
+// entrypoints resolved it to conflicting targets.
+func (m *Metrics) ObserveConflict(host string) {
+	m.conflicts.WithLabelValues(host).Inc()
 }
 
 // SetManaged records how many records are in the desired state.
