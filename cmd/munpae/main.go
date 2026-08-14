@@ -74,7 +74,7 @@ func run(cfg config.Config, logger *slog.Logger) error {
 
 	m := metrics.New(version)
 
-	src, err := buildSources(cfg, cli, logger, m.ObserveDeprecatedLabel)
+	src, err := buildSources(cfg, cli, logger, m.ObserveDeprecatedLabel, m.ObserveConflict)
 	if err != nil {
 		return err
 	}
@@ -123,14 +123,14 @@ func run(cfg config.Config, logger *slog.Logger) error {
 	}
 }
 
-func buildSources(cfg config.Config, cli client.APIClient, logger *slog.Logger, onDeprecated func(string)) (source.Source, error) {
+func buildSources(cfg config.Config, cli client.APIClient, logger *slog.Logger, onDeprecated func(string), onConflict func(string)) (source.Source, error) {
 	var multi source.Multi
 	for _, name := range cfg.Sources {
 		switch name {
 		case "docker":
 			multi = append(multi, source.NewDockerLabel(cli, cfg.LabelPrefix, cfg.IncludeStopped, logger, onDeprecated))
 		case "traefik":
-			multi = append(multi, source.NewTraefik(cli, cfg.LabelPrefix, cfg.Traefik.Entrypoints, cfg.IncludeStopped, logger, onDeprecated))
+			multi = append(multi, source.NewTraefik(cli, cfg.LabelPrefix, cfg.Traefik.Entrypoints, cfg.IncludeStopped, logger, onDeprecated, onConflict))
 		default:
 			return nil, fmt.Errorf("unknown source %q", name)
 		}
