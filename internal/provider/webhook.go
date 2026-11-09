@@ -192,21 +192,42 @@ type wireChanges struct {
 	Delete    []wireEndpoint `json:"Delete,omitempty"`
 }
 
+// toEndpoint maps a wire endpoint to munpae's, unquoting TXT targets: webhook
+// servers hand back TXT content quoted, as external-dns sends it.
 func (e wireEndpoint) toEndpoint() endpoint.Endpoint {
-	ep := endpoint.New(e.DNSName, e.Targets, endpoint.RecordType(e.RecordType), e.RecordTTL)
+	rt := endpoint.RecordType(e.RecordType)
+	targets := e.Targets
+	if rt == endpoint.TypeTXT {
+		targets = make([]string, len(e.Targets))
+		for i, t := range e.Targets {
+			targets[i] = unquoteTXT(t)
+		}
+	}
+	ep := endpoint.New(e.DNSName, targets, rt, e.RecordTTL)
 	ep.Labels = e.Labels
 	return ep
 }
 
+// toWire maps munpae's endpoints to the wire shape, quoting TXT targets the way
+// external-dns does: webhook servers pass them through, and backends such as
+// UniFi reject raw TXT content with a comma, like the ownership value
+// `heritage=munpae,munpae/owner=<id>`.
 func toWire(eps []endpoint.Endpoint) []wireEndpoint {
 	if len(eps) == 0 {
 		return nil
 	}
 	out := make([]wireEndpoint, 0, len(eps))
 	for _, e := range eps {
+		targets := e.Targets
+		if e.RecordType == endpoint.TypeTXT {
+			targets = make([]string, len(e.Targets))
+			for i, t := range e.Targets {
+				targets[i] = quoteTXT(e.RecordType, t)
+			}
+		}
 		out = append(out, wireEndpoint{
 			DNSName:    e.DNSName,
-			Targets:    e.Targets,
+			Targets:    targets,
 			RecordType: string(e.RecordType),
 			RecordTTL:  e.TTL,
 			Labels:     e.Labels,
