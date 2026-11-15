@@ -252,50 +252,6 @@ func recordType(t string) (endpoint.RecordType, bool) {
 	}
 }
 
-// quoteTXT wraps TXT content in double quotes for the Cloudflare API. Cloudflare
-// requires TXT content to be quoted and adds the quotes itself (logging a
-// warning) when sent raw; sending it pre-quoted avoids that warning and is the
-// exact inverse of unquoteTXT on read. Non-TXT content, and already-quoted
-// content, are returned unchanged.
-func quoteTXT(rt endpoint.RecordType, s string) string {
-	if rt != endpoint.TypeTXT {
-		return s
-	}
-	if len(s) >= 2 && strings.HasPrefix(s, `"`) && strings.HasSuffix(s, `"`) {
-		return s
-	}
-	return strconv.Quote(s)
-}
-
-// unquoteTXT normalizes Cloudflare's quoted TXT content back to the raw value.
-// CF returns TXT content wrapped in double quotes, splitting values longer than
-// 255 bytes into several adjacent quoted chunks (`"aaa" "bbb"`). A plain value
-// (no surrounding quote) is returned unchanged.
-func unquoteTXT(s string) string {
-	if !strings.HasPrefix(s, `"`) {
-		return s
-	}
-	if v, err := strconv.Unquote(s); err == nil {
-		return v
-	}
-	// Concatenated 255-byte chunks: unquote each, dropping the joining spaces.
-	var b strings.Builder
-	for _, chunk := range strings.Split(s, `" "`) {
-		if !strings.HasPrefix(chunk, `"`) {
-			chunk = `"` + chunk
-		}
-		if !strings.HasSuffix(chunk, `"`) {
-			chunk += `"`
-		}
-		if v, err := strconv.Unquote(chunk); err == nil {
-			b.WriteString(v)
-		} else {
-			b.WriteString(strings.Trim(chunk, `"`))
-		}
-	}
-	return b.String()
-}
-
 // longestZone returns the most specific accessible zone `name` belongs to, or "".
 func longestZone(name string, zones []string) string {
 	name = strings.TrimSuffix(name, ".")

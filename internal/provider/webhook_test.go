@@ -77,6 +77,64 @@ func TestWebhookRecordsAndApply(t *testing.T) {
 	}
 }
 
+// TXT content crosses the webhook quoted, as external-dns sends it: UniFi
+// rejects raw TXT content with a comma ("Comma must be within a quoted
+// string"), which the ownership value always has. munpae keeps it raw.
+func TestWebhookQuotesTXT(t *testing.T) {
+	const owner = "heritage=munpae,munpae/owner=test"
+	records := []wireEndpoint{
+		{DNSName: "munpae.a-a.example.com", Targets: []string{`"` + owner + `"`}, RecordType: "TXT"},
+		{DNSName: "a.example.com", Targets: []string{"10.0.0.1"}, RecordType: "A"},
+	}
+	var captured wireChanges
+	srv := webhookServer(records, &captured)
+	defer srv.Close()
+
+	w, err := NewWebhook(srv.URL, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	eps, err := w.Records(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := eps[0].Targets[0]; got != owner {
+		t.Fatalf("TXT read not unquoted: %q", got)
+	}
+	if got := eps[1].Targets[0]; got != "10.0.0.1" {
+		t.Fatalf("A read changed: %q", got)
+	}
+
+	ch := &plan.Changes{
+		Create: []endpoint.Endpoint{
+			endpoint.New("munpae.a-new.example.com", []string{owner}, endpoint.TypeTXT, 0),
+			endpoint.New("pre.example.com", []string{`"already quoted"`}, endpoint.TypeTXT, 0),
+			endpoint.New("new.example.com", []string{"10.0.0.2"}, endpoint.TypeA, 0),
+		},
+		Delete: []endpoint.Endpoint{endpoint.New("munpae.a-old.example.com", []string{owner}, endpoint.TypeTXT, 0)},
+	}
+	if err := w.ApplyChanges(context.Background(), ch); err != nil {
+		t.Fatal(err)
+	}
+	if got := captured.Create[0].Targets[0]; got != `"`+owner+`"` {
+		t.Fatalf("TXT create not quoted: %q", got)
+	}
+	if got := captured.Create[1].Targets[0]; got != `"already quoted"` {
+		t.Fatalf("quoted TXT quoted again: %q", got)
+	}
+	if got := captured.Create[2].Targets[0]; got != "10.0.0.2" {
+		t.Fatalf("A create changed: %q", got)
+	}
+	if got := captured.Delete[0].Targets[0]; got != `"`+owner+`"` {
+		t.Fatalf("TXT delete not quoted like the stored record: %q", got)
+	}
+	// The caller's endpoints keep their raw values.
+	if got := ch.Create[0].Targets[0]; got != owner {
+		t.Fatalf("caller's TXT target modified: %q", got)
+	}
+}
+
 func TestWebhookNegotiateRejectsWrongContentType(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(webhookContentType, "application/json") // not the webhook media type
