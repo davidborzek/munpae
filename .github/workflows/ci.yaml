@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # new stdlib/module advisories land without any commit; surface them on main
+  # before they first show up as an unrelated PR failing the vuln job
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
 
 jobs:
   build:
