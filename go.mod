@@ -8,7 +8,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/cloudflare/cloudflare-go v0.117.0
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/miekg/dns v1.1.68
+	github.com/miekg/dns v1.1.73
 	github.com/prometheus/client_golang v1.24.0
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/urfave/cli/v2 v2.27.7
