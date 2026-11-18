@@ -6,7 +6,7 @@ toolchain go1.27.4
 
 require (
 	github.com/caarlos0/env/v11 v11.4.2
-	github.com/cloudflare/cloudflare-go v0.117.0
+	github.com/cloudflare/cloudflare-go v0.119.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/miekg/dns v1.1.73
 	github.com/prometheus/client_golang v1.25.0
