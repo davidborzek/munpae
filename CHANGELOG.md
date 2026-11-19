@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1](https://github.com/davidborzek/munpae/compare/v0.3.0...v0.3.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** bump Go toolchain and x/net for govulncheck ([#11](https://github.com/davidborzek/munpae/issues/11)) ([e2a1832](https://github.com/davidborzek/munpae/commit/e2a1832d0333d279eddeeb8befb72ee74478ae34))
+* **deps:** update module github.com/caarlos0/env/v11 to v11.4.2 ([#23](https://github.com/davidborzek/munpae/issues/23)) ([887cf2d](https://github.com/davidborzek/munpae/commit/887cf2d2c4f6054f91502a7bb65c6e2f9c18ff05))
+* **deps:** update module github.com/cloudflare/cloudflare-go to v0.119.0 ([#24](https://github.com/davidborzek/munpae/issues/24)) ([4c4995f](https://github.com/davidborzek/munpae/commit/4c4995ff173618d526fe3c66824f2070ec3499ba))
+* **deps:** update module github.com/miekg/dns to v1.1.73 ([#20](https://github.com/davidborzek/munpae/issues/20)) ([e1cc138](https://github.com/davidborzek/munpae/commit/e1cc138594f570ad9d2dcb3c95a2843f06e7d685))
+* **deps:** update module github.com/prometheus/client_golang to v1.25.0 ([#25](https://github.com/davidborzek/munpae/issues/25)) ([36a5f80](https://github.com/davidborzek/munpae/commit/36a5f80017e429677d60fb4d20f12dbff9af1c93))
+* **deps:** update module github.com/testcontainers/testcontainers-go to v0.45.0 ([#26](https://github.com/davidborzek/munpae/issues/26)) ([425eafa](https://github.com/davidborzek/munpae/commit/425eafa78271d0128dd047a8ef79e3d4bafa49a6))
+* **webhook:** send TXT content quoted ([#10](https://github.com/davidborzek/munpae/issues/10)) ([d8cd33a](https://github.com/davidborzek/munpae/commit/d8cd33ad2de39d84636455f2c89f470f8c2b829f))
+
 ## [0.3.0](https://github.com/davidborzek/munpae/compare/v0.2.1...v0.3.0) (2026-08-14)
 
 
