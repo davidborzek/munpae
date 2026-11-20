@@ -11,7 +11,8 @@ require (
 	github.com/miekg/dns v1.1.73
 	github.com/prometheus/client_golang v1.25.0
 	github.com/testcontainers/testcontainers-go v0.45.0
-	github.com/urfave/cli/v2 v2.27.7
+	github.com/urfave/cli/v2 v2.27.5
+	github.com/urfave/cli/v3 v3.14.0
 )
 
 require (
